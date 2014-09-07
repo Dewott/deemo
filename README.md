@@ -1,4 +1,4 @@
-deemo
+Deemo simulator
 =====
 
-Deemo simulator
+Simple test
