@@ -6,24 +6,25 @@ import java.io.*;
 import java.awt.*;
 import java.awt.image.*;
 import javax.media.*;
+//import javax.sound.midi.*;
 import javazoom.jl.converter.*;
 
-public class Compose {
+public class Composition {
 	LinkedList<Note> notes = new LinkedList<Note>();
 	String name = null;
 	double ar = 600;
 	int time = 0;
 
-	public Compose(String name, String diff, int speed) throws Exception {
+	public Composition(String name, String diff, int speed) throws Exception {
 		this.name = name;
-		new ComposeReader(name, diff);
+		new CompositionReader(name, diff);
 		double t[] = new double[] { 8000, 4000, 2000, 1600, 1200, 900, 600,
 				300, 100 };
 		this.ar = t[speed - 1];
 	}
 
-	class ComposeReader {
-		public ComposeReader(String name, String diff) throws Exception {
+	class CompositionReader {
+		public CompositionReader(String name, String diff) throws Exception {
 			BufferedReader r = new BufferedReader(new FileReader("TextAsset/"
 					+ name + "." + diff + ".json.txt"));
 			String str = "";
@@ -37,37 +38,62 @@ public class Compose {
 			JSONObject obj = JSONObject.fromObject(str);
 			JSONArray arr = JSONArray.fromObject(obj.get("notes"));
 			for (Object tobj : arr) {
-				JSONObject nobj = JSONObject.fromObject(tobj);
+				JSONObject nobj = (JSONObject) tobj;
+				int id = Integer.parseInt(nobj.getString("$id"));
 				double x = nobj.optDouble("pos", 0);
-				int time = (int) (nobj.getDouble("_time") * 1000);
-				double size = nobj.getDouble("size");
-				Note n = new Note(Compose.this, x, time, size);
+				int time = (int) (nobj.optDouble("_time", 0) * 1000);
+				double size = nobj.optDouble("size", 0);
+				Note n = new Note(Composition.this, id, x, time, size);
 				notes.add(n);
 
 				JSONArray arr2 = nobj.optJSONArray("sounds");
 				if (arr2 != null) {
 					for (Object tobj2 : arr2) {
-						JSONObject sobj = JSONObject.fromObject(tobj2);
+						JSONObject sobj = (JSONObject) tobj2;
 						int d = (int) (sobj.getDouble("d") * 1000);
-						int p = sobj.getInt("p");
-						int v = sobj.getInt("v");
-						double w = sobj.optDouble("w", 0);
+						int p = 64, v = 64;
+						double w = 0;
+						if (sobj.containsKey("p"))
+							p = sobj.getInt("p");
+						if (sobj.containsKey("v"))
+							v = sobj.getInt("v");
+						if (sobj.containsKey("w"))
+							w = sobj.getDouble("w");
 						n.addSound(new Sound(d, p, v, w));
 					}
 				}
 			}
 
-			arr = JSONArray.fromObject(obj.get("links"));
+			arr = JSONArray.fromObject(obj.getString("links"));
 			for (Object tobj : arr) {
-				JSONObject link = JSONObject.fromObject(tobj);
-				JSONArray arr2 = JSONArray.fromObject(link.get("notes"));
+				JSONObject link = (JSONObject) tobj;
+				JSONArray arr2 = JSONArray.fromObject(link.getString("notes"));
 
 				for (Object tobj2 : arr2) {
-					JSONObject note = JSONObject.fromObject(tobj2);
+					JSONObject note = (JSONObject) tobj2;
 					int p = Integer.parseInt(note.getString("$ref"));
 					notes.get(p - 1).setLink(true);
 				}
 			}
+
+			/*
+			 * Sequence seq=new Sequence(Sequence.PPQ,1000);
+			 * javax.sound.midi.Track t=seq.createTrack(); for(Note note:notes)
+			 * for(Sound sound:note.sounds){ ShortMessage msg1=new
+			 * ShortMessage();
+			 * msg1.setMessage(ShortMessage.NOTE_ON,sound.pitch,sound.volume);
+			 * long tick1=(long)(note.time*seq.getResolution()/500);
+			 * ShortMessage msg2=new ShortMessage();
+			 * msg2.setMessage(ShortMessage.NOTE_OFF,sound.pitch,sound.volume);
+			 * long
+			 * tick2=(long)((note.time+sound.duration)*seq.getResolution()/500);
+			 * 
+			 * t.add(new MidiEvent(msg1,tick1)); t.add(new
+			 * MidiEvent(msg2,tick2)); } int[] fileTypes =
+			 * MidiSystem.getMidiFileTypes(seq);
+			 * MidiSystem.write(seq,fileTypes[0],new
+			 * File("./midi/"+name+"."+diff+".midi"));
+			 */
 		}
 	}
 
@@ -80,7 +106,7 @@ public class Compose {
 		} catch (Exception e) {
 		}
 		p.start();
-		p.getGainControl().setLevel(0.4f);
+		p.getGainControl().setLevel(0.2f);
 		BufferedImage buf = new BufferedImage(720, 480,
 				BufferedImage.TYPE_INT_ARGB);
 		Graphics2D gg = (Graphics2D) buf.getGraphics();
@@ -95,7 +121,7 @@ public class Compose {
 			time = (int) (p.getMediaTime().getSeconds() * 1000);
 			LinkedList<Note> del = new LinkedList<Note>();
 			for (Note n : notes) {
-				if (time > n.time)
+				if (time > n.time + 1000)
 					del.add(n);
 				else if ((time <= n.time + ar) && (time >= n.time - ar))
 					n.paint(gg);
@@ -103,7 +129,7 @@ public class Compose {
 			notes.removeAll(del);
 			g.drawImage(buf, 0, 0, null);
 			try {
-				Thread.sleep(10);
+				Thread.sleep(16);
 			} catch (Exception e) {
 			}
 		}

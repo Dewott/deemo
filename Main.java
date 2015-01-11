@@ -1,6 +1,7 @@
 package deemo;
 
 import java.awt.*;
+import java.io.*;
 import javax.swing.*;
 
 public class Main extends JFrame {
@@ -15,9 +16,9 @@ public class Main extends JFrame {
 		System.setProperty("sun.java2d.opengl", "true");
 		Graphics2D g = (Graphics2D) getContentPane().getGraphics();
 		try {
-			new Compose(name, "hard", 6).start(g);
+			new Composition(name, "hard", 6).start(g);
 		} catch (Exception e) {
-			System.out.println(e);
+			e.printStackTrace();
 		}
 	}
 
